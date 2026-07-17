@@ -1,0 +1,23 @@
+{
+  "name": "whatsapp-agent-orchestrator",
+  "version": "0.1.0",
+  "description": "Routes WhatsApp messages to Claude/ChatGPT and a remote laptop agent",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0",
+    "@cerebras/cerebras_cloud_sdk": "^1.91.0",
+    "@ngrok/ngrok": "^1.7.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "googleapis": "^173.0.0",
+    "nanoid": "^5.0.7",
+    "openai": "^4.68.0",
+    "twilio": "^5.3.0",
+    "ws": "^8.18.0"
+  }
+}
