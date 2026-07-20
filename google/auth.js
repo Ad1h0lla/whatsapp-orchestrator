@@ -44,8 +44,14 @@ export async function getAuthenticatedClient() {
   // First try environment variable (works on Render after restart)
   if (process.env.GOOGLE_TOKEN) {
     try {
-      tokens = JSON.parse(process.env.GOOGLE_TOKEN);
-    } catch {
+      let rawToken = process.env.GOOGLE_TOKEN;
+      // Handle double-stringified JSON (e.g. "{\"access_token\":...}")
+      if (rawToken.startsWith('"')) {
+        rawToken = JSON.parse(rawToken);
+      }
+      tokens = typeof rawToken === "string" ? JSON.parse(rawToken) : rawToken;
+    } catch (err) {
+      console.error("[google] failed to parse GOOGLE_TOKEN:", err.message);
       throw new Error("Google not connected yet. Open this in your browser:\n" + process.env.GOOGLE_REDIRECT_BASE + "/google/auth");
     }
   } else {
