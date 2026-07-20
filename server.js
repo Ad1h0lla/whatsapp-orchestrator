@@ -110,10 +110,11 @@ app.get("/agent/status", (req, res) => {
 // Laptop agent polls this every 3 seconds to get jobs
 app.get("/agent/poll", (req, res) => {
   const secret = req.headers["x-agent-secret"];
+  const agentId = req.headers["x-agent-id"] || "default-laptop";
+  console.log(`[poll] agentId=${agentId} secretMatch=${secret === process.env.AGENT_SHARED_SECRET} secretLength=${secret?.length}`);
   if (secret !== process.env.AGENT_SHARED_SECRET) {
     return res.status(401).json({ error: "unauthorized" });
   }
-  const agentId = req.headers["x-agent-id"] || "default-laptop";
   const jobs = getQueuedJobs(agentId);
   res.json({ jobs });
 });
