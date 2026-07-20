@@ -2,7 +2,7 @@ import "dotenv/config";
 import express from "express";
 import http from "http";
 import twilio from "twilio";
-import { attachLaptopAgentServer } from "./laptopAgentBridge.js";
+import { attachLaptopAgentServer, getQueuedJobs, resolveJob, isLaptopAgentOnline } from "./laptopAgentBridge.js";
 import { handleIncomingMessage } from "./routes/router.js";
 import { getAuthUrl, saveToken } from "./google/auth.js";
 
@@ -99,6 +99,28 @@ app.get("/show-token-raw", (req, res) => {
 });
 
 app.get("/health", (req, res) => res.json({ ok: true }));
+
+// Laptop agent polls this every 3 seconds to get jobs
+app.get("/agent/poll", (req, res) => {
+  const secret = req.headers["x-agent-secret"];
+  if (secret !== process.env.AGENT_SHARED_SECRET) {
+    return res.status(401).json({ error: "unauthorized" });
+  }
+  const agentId = req.headers["x-agent-id"] || "default-laptop";
+  const jobs = getQueuedJobs(agentId);
+  res.json({ jobs });
+});
+
+// Laptop agent posts results here
+app.post("/agent/result", express.json(), (req, res) => {
+  const secret = req.headers["x-agent-secret"];
+  if (secret !== process.env.AGENT_SHARED_SECRET) {
+    return res.status(401).json({ error: "unauthorized" });
+  }
+  const { jobId, ok, output, error } = req.body;
+  resolveJob(jobId, { ok, output, error });
+  res.json({ received: true });
+});
 
 const server = http.createServer(app);
 attachLaptopAgentServer(server);

@@ -1,91 +1,47 @@
-import { WebSocketServer } from "ws";
-import { nanoid } from "nanoid";
-
-// Tracks connected laptop agents: agentId -> ws connection
-const connectedAgents = new Map();
-// Tracks in-flight job requests: jobId -> { resolve, reject, timeout }
-const pendingJobs = new Map();
-
-export function attachLaptopAgentServer(httpServer) {
-  const wss = new WebSocketServer({ server: httpServer, path: "/agent-socket" });
-
-  wss.on("connection", (ws, req) => {
-    let agentId = null;
-
-    ws.on("message", (raw) => {
-      let msg;
-      try {
-        msg = JSON.parse(raw.toString());
-      } catch {
-        return;
-      }
-
-      if (msg.type === "auth") {
-        if (msg.secret !== process.env.AGENT_SHARED_SECRET) {
-          ws.close(4001, "bad secret");
-          return;
-        }
-        agentId = msg.agentId || "default-laptop";
-        connectedAgents.set(agentId, ws);
-        ws.send(JSON.stringify({ type: "auth_ok" }));
-        console.log(`[agent-socket] laptop agent connected: ${agentId}`);
-        return;
-      }
-
-      if (msg.type === "ping") {
-        ws.send(JSON.stringify({ type: "pong" }));
-        return;
-      }
-
-      if (msg.type === "job_result") {
-        const pending = pendingJobs.get(msg.jobId);
-        if (pending) {
-          clearTimeout(pending.timeout);
-          pending.resolve(msg);
-          pendingJobs.delete(msg.jobId);
-        }
-        return;
-      }
-    });
-
-    ws.on("close", () => {
-      if (agentId) {
-        connectedAgents.delete(agentId);
-        console.log(`[agent-socket] laptop agent disconnected: ${agentId}`);
-      }
-    });
-  });
-
-  return wss;
-}
+// Job queue — in memory on the Render server
+const jobQueue = new Map();     // jobId -> { action, args, resolve, reject, timeout }
+const resultQueue = new Map();  // agentId -> [{ jobId, action, args }]
+let agentLastSeen = new Map();  // agentId -> timestamp
 
 export function isLaptopAgentOnline(agentId = "default-laptop") {
-  return connectedAgents.has(agentId);
+  const last = agentLastSeen.get(agentId);
+  if (!last) return false;
+  return Date.now() - last < 15000; // online if polled within last 15 seconds
 }
 
-/**
- * Send a job to the laptop agent and wait for its result.
- * action: string identifying which whitelisted action to run
- * args: object of arguments for that action
- */
-export function sendJobToLaptop({ action, args = {}, agentId = "default-laptop", timeoutMs = 20000 }) {
-  const ws = connectedAgents.get(agentId);
-  if (!ws) {
-    console.error(`[agent-socket] Failed to send job, laptop agent '${agentId}' is not connected.`);
-    return Promise.reject(new Error("Laptop agent is not connected right now."));
-  }
+export function attachLaptopAgentServer(httpServer) {
+  // No-op — polling routes are added directly in server.js
+}
 
-  const jobId = nanoid();
-  const payload = JSON.stringify({ type: "job", jobId, action, args });
-  console.log(`[agent-socket] Sending job ${jobId} to laptop agent '${agentId}':`, { action, args });
-
+export function sendJobToLaptop({ action, args = {}, agentId = "default-laptop", timeoutMs = 30000 }) {
   return new Promise((resolve, reject) => {
+    const jobId = Math.random().toString(36).slice(2);
     const timeout = setTimeout(() => {
-      pendingJobs.delete(jobId);
+      jobQueue.delete(jobId);
       reject(new Error("Laptop agent did not respond in time."));
     }, timeoutMs);
 
-    pendingJobs.set(jobId, { resolve, reject, timeout });
-    ws.send(payload);
+    jobQueue.set(jobId, { resolve, reject, timeout });
+
+    if (!resultQueue.has(agentId)) resultQueue.set(agentId, []);
+    resultQueue.get(agentId).push({ jobId, action, args });
+
+    console.log(`[laptop] queued job ${jobId} action=${action}`);
   });
+}
+
+export function getQueuedJobs(agentId) {
+  agentLastSeen.set(agentId, Date.now());
+  const jobs = resultQueue.get(agentId) || [];
+  resultQueue.set(agentId, []);
+  return jobs;
+}
+
+export function resolveJob(jobId, result) {
+  const pending = jobQueue.get(jobId);
+  if (!pending) return;
+  clearTimeout(pending.timeout);
+  if (result.ok) pending.resolve(result);
+  else pending.reject(new Error(result.error));
+  jobQueue.delete(jobId);
 }
