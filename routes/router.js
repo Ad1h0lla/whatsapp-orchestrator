@@ -50,7 +50,31 @@ export async function handleIncomingMessage(fromNumber, messageBody) {
   console.log(`[Router] Intent classified as ${intent.type} for message: "${messageBody}"`);
 
   let reply;
-  if (intent.type === "local_action") {
+  
+  const msg = messageBody.toLowerCase();
+  let actionOverride = null;
+  let argsOverride = null;
+
+  // Code runner — triggers Claude Code / Antigravity on laptop
+  if (/(build|write|create|code|make|generate).*(script|code|function|app|tool|file|component)/.test(msg) ||
+      /^(build|code|make|write|create)\s+me\s+/.test(msg)) {
+    actionOverride = "run_claude_code";
+    argsOverride = { 
+      task: messageBody,  // pass the full original message as the task
+      workingDir: "."     // runs in AGENT_SANDBOX_ROOT by default
+    };
+  }
+
+  if (actionOverride === "run_claude_code") {
+    console.log(`[Router] Branch: local_action (regex override)`);
+    const session = sessionStore.getSession(fromNumber);
+    session.pendingConfirmation = {
+      action: `${actionOverride}(${JSON.stringify(argsOverride)})`,
+      args: argsOverride,
+      actionName: actionOverride
+    };
+    reply = `About to run: ${actionOverride} with ${JSON.stringify(argsOverride)}\nReply "yes" to confirm or "no" to cancel.`;
+  } else if (intent.type === "local_action") {
     console.log(`[Router] Branch: local_action`);
     reply = await planAndRunLocalAction(fromNumber, messageBody);
   } else if (intent.type === "google_action") {
