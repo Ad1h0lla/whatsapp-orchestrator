@@ -100,6 +100,13 @@ app.get("/show-token-raw", (req, res) => {
 
 app.get("/health", (req, res) => res.json({ ok: true }));
 
+app.get("/agent/status", (req, res) => {
+  res.json({ 
+    online: isLaptopAgentOnline("default-laptop"),
+    time: Date.now()
+  });
+});
+
 // Laptop agent polls this every 3 seconds to get jobs
 app.get("/agent/poll", (req, res) => {
   const secret = req.headers["x-agent-secret"];
