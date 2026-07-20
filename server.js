@@ -48,13 +48,19 @@ app.post("/webhook/whatsapp", async (req, res) => {
 const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
 async function sendWhatsAppMessage(toNumber, body) {
+  console.log(`[twilio] sending to ${toNumber}: ${body.slice(0, 100)}`);
   const chunks = chunkText(body, 1500);
   for (const chunk of chunks) {
-    await twilioClient.messages.create({
-      from: process.env.TWILIO_WHATSAPP_FROM,
-      to: `whatsapp:${toNumber}`,
-      body: chunk,
-    });
+    try {
+      const msg = await twilioClient.messages.create({
+        from: process.env.TWILIO_WHATSAPP_FROM,
+        to: `whatsapp:${toNumber}`,
+        body: chunk,
+      });
+      console.log(`[twilio] sent successfully, SID: ${msg.sid}`);
+    } catch (err) {
+      console.error(`[twilio] FAILED:`, err.message);
+    }
   }
 }
 
