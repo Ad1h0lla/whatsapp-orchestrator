@@ -94,6 +94,10 @@ app.get("/debug-env", (req, res) => {
   });
 });
 
+app.get("/show-token-raw", (req, res) => {
+  res.send(`<pre>${process.env.GOOGLE_TOKEN}</pre>`);
+});
+
 app.get("/health", (req, res) => res.json({ ok: true }));
 
 const server = http.createServer(app);
