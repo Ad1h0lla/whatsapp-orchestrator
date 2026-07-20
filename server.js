@@ -31,17 +31,28 @@ app.get("/google/callback", async (req, res) => {
 app.post("/webhook/whatsapp", async (req, res) => {
   const from = (req.body.From || "").replace("whatsapp:", "");
   const body = req.body.Body || "";
+
+  console.log(`[webhook] received from ${from}: ${body}`);
+
   if (allowedNumbers.length > 0 && !allowedNumbers.includes(from)) {
+    console.log(`[webhook] rejected unauthorized number: ${from}`);
     res.status(200).send("");
     return;
   }
+
   res.status(200).send("");
+
   try {
+    console.log(`[webhook] calling handleIncomingMessage`);
     const reply = await handleIncomingMessage(from, body);
+    console.log(`[webhook] got reply: ${reply?.slice(0, 100)}`);
     await sendWhatsAppMessage(from, reply);
   } catch (err) {
-    console.error("[whatsapp] error:", err);
-    await sendWhatsAppMessage(from, "Something went wrong — try again.").catch(() => {});
+    console.error(`[webhook] ERROR:`, err.message);
+    console.error(err.stack);
+    await sendWhatsAppMessage(from, "Something went wrong — try again.").catch((e) => {
+      console.error(`[webhook] also failed to send error message:`, e.message);
+    });
   }
 });
 
