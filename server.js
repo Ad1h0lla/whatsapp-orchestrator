@@ -65,6 +65,8 @@ function chunkText(text, maxLen) {
   return chunks;
 }
 
+app.get("/debug-token", (req, res) => res.json({ hasToken: !!process.env.GOOGLE_TOKEN, tokenStart: process.env.GOOGLE_TOKEN?.slice(0,20) }));
+
 app.get("/health", (req, res) => res.json({ ok: true }));
 
 const server = http.createServer(app);
