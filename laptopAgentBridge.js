@@ -32,6 +32,11 @@ export function attachLaptopAgentServer(httpServer) {
         return;
       }
 
+      if (msg.type === "ping") {
+        ws.send(JSON.stringify({ type: "pong" }));
+        return;
+      }
+
       if (msg.type === "job_result") {
         const pending = pendingJobs.get(msg.jobId);
         if (pending) {
