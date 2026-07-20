@@ -1,7 +1,7 @@
 import { google } from "googleapis";
-import fs from "fs/promises";
-import path from "path";
 import { fileURLToPath } from "url";
+import path from "path";
+import fs from "fs/promises";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TOKEN_PATH = path.join(__dirname, "token.json");
@@ -30,25 +30,39 @@ export function getAuthUrl() {
 export async function saveToken(code) {
   const client = getOAuthClient();
   const { tokens } = await client.getToken(code);
+  // Save to file as backup
   await fs.writeFile(TOKEN_PATH, JSON.stringify(tokens, null, 2));
-  console.log("[google] token saved to:", TOKEN_PATH);
+  // Print to logs so we can copy it into Render env vars
+  console.log("[google] GOOGLE_TOKEN=" + JSON.stringify(JSON.stringify(tokens)));
   return tokens;
 }
 
 export async function getAuthenticatedClient() {
   const client = getOAuthClient();
   let tokens;
-  try {
-    const raw = await fs.readFile(TOKEN_PATH, "utf8");
-    tokens = JSON.parse(raw);
-    console.log("[google] token loaded from:", TOKEN_PATH);
-  } catch {
-    throw new Error("Google not connected yet.");
+
+  // First try environment variable (works on Render after restart)
+  if (process.env.GOOGLE_TOKEN) {
+    try {
+      tokens = JSON.parse(process.env.GOOGLE_TOKEN);
+    } catch {
+      throw new Error("Google not connected yet. Open this in your browser:\n" + process.env.GOOGLE_REDIRECT_BASE + "/google/auth");
+    }
+  } else {
+    // Fall back to file (works locally)
+    try {
+      const raw = await fs.readFile(TOKEN_PATH, "utf8");
+      tokens = JSON.parse(raw);
+    } catch {
+      throw new Error("Google not connected yet. Open this in your browser:\n" + process.env.GOOGLE_REDIRECT_BASE + "/google/auth");
+    }
   }
+
   client.setCredentials(tokens);
   client.on("tokens", async (newTokens) => {
     const merged = { ...tokens, ...newTokens };
-    await fs.writeFile(TOKEN_PATH, JSON.stringify(merged, null, 2));
+    // Update env var value in memory
+    process.env.GOOGLE_TOKEN = JSON.stringify(merged);
     tokens = merged;
   });
   return client;
