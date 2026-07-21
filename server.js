@@ -6,6 +6,9 @@ import { attachLaptopAgentServer, getQueuedJobs, resolveJob, isLaptopAgentOnline
 import { handleIncomingMessage } from "./routes/router.js";
 import { getAuthUrl, saveToken } from "./google/auth.js";
 
+// Force single instance check
+console.log(`[server] instance started PID=${process.pid}`);
+
 const app = express();
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
@@ -111,11 +114,12 @@ app.get("/agent/status", (req, res) => {
 app.get("/agent/poll", (req, res) => {
   const secret = req.headers["x-agent-secret"];
   const agentId = req.headers["x-agent-id"] || "default-laptop";
-  console.log(`[poll] agentId=${agentId} secretMatch=${secret === process.env.AGENT_SHARED_SECRET} secretLength=${secret?.length}`);
+  console.log(`[poll] hit from agentId=${agentId} secretMatch=${secret === process.env.AGENT_SHARED_SECRET}`);
   if (secret !== process.env.AGENT_SHARED_SECRET) {
     return res.status(401).json({ error: "unauthorized" });
   }
   const jobs = getQueuedJobs(agentId);
+  console.log(`[poll] responded with ${jobs.length} jobs`);
   res.json({ jobs });
 });
 
