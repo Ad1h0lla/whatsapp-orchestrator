@@ -111,7 +111,7 @@ app.get("/agent/status", (req, res) => {
 });
 
 // Laptop agent polls this every 3 seconds to get jobs
-app.get("/agent/poll", (req, res) => {
+app.post("/agent/poll", (req, res) => {
   const secret = req.headers["x-agent-secret"];
   const agentId = req.headers["x-agent-id"] || "default-laptop";
   console.log(`[poll] hit from agentId=${agentId} secretMatch=${secret === process.env.AGENT_SHARED_SECRET}`);
