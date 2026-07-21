@@ -17,7 +17,7 @@ export function isLaptopAgentOnline(agentId = "default-laptop") {
 
 export function attachLaptopAgentServer() {}
 
-export function sendJobToLaptop({ action, args = {}, agentId = "default-laptop", timeoutMs = 30000 }) {
+export function sendJobToLaptop({ action, args = {}, agentId = "default-laptop", timeoutMs = 60000 }) {
   return new Promise((resolve, reject) => {
     const jobId = nanoid();
     const timeout = setTimeout(() => {
