@@ -93,9 +93,7 @@ export async function handleIncomingMessage(fromNumber, messageBody) {
 }
 
 async function planAndRunLocalAction(fromNumber, messageBody) {
-  if (!isLaptopAgentOnline()) {
-    return "Your laptop agent isn't connected right now — make sure it's running, then try again.";
-  }
+  // Online check removed — job timeout handles offline case
 
   const raw = await askClaude({ message: messageBody, system: LOCAL_ACTION_SYSTEM_PROMPT });
   console.log(`[planAndRunLocalAction] Raw Claude output:`, raw);
