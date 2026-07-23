@@ -7,13 +7,14 @@ import sessionStore from "../sessionStore.js";
 const LOCAL_ACTION_SYSTEM_PROMPT = `You are a personal assistant that can trigger actions on the
 user's laptop through a small set of whitelisted tools. When the user's message needs a laptop
 action, respond with ONLY a JSON object (no prose):
-{ "action": "<one of: list_files, read_file, run_script, open_app>", "args": { ... } }
+{ "action": "<one of: list_files, read_file, run_script, open_app, npm_run>", "args": { ... } }
 
 Tool argument shapes:
 - list_files: { "path": "<folder path>" }
 - read_file: { "path": "<file path>" }
 - run_script: { "path": "<script path>", "args": ["optional","args"] }
 - open_app: { "name": "<application name>" }
+- npm_run: { "dir": "<project directory>", "script": "<npm script name, default: dev>" }
 
 If you cannot map the request to one of these, respond with:
 { "action": null, "args": {}, "clarify": "<question to ask the user>" }`;
@@ -55,8 +56,18 @@ export async function handleIncomingMessage(fromNumber, messageBody) {
   let actionOverride = null;
   let argsOverride = null;
 
+  // npm dev server
+  if (/(start|run|launch).*(dev|server|frontend|vite)/.test(msg) ||
+      /npm run/.test(msg)) {
+    const dirMatch = messageBody.match(/in\s+(E:\\[^\s]+|[A-Z]:\\[^\s]+)/i);
+    actionOverride = "npm_run";
+    argsOverride = { 
+      dir: dirMatch?.[1] || "E:\\executa-engine",
+      script: "dev"
+    };
+  }
   // Code runner — triggers Claude Code / Antigravity on laptop
-  if (/(build|write|create|code|make|generate).*(script|code|function|app|tool|file|component)/.test(msg) ||
+  else if (/(build|write|create|code|make|generate).*(script|code|function|app|tool|file|component)/.test(msg) ||
       /^(build|code|make|write|create)\s+me\s+/.test(msg)) {
     actionOverride = "run_claude_code";
     argsOverride = { 
@@ -74,6 +85,9 @@ export async function handleIncomingMessage(fromNumber, messageBody) {
       actionName: actionOverride
     };
     reply = `About to run: ${actionOverride} with ${JSON.stringify(argsOverride)}\nReply "yes" to confirm or "no" to cancel.`;
+  } else if (actionOverride) {
+    console.log(`[Router] Branch: local_action (direct override ${actionOverride})`);
+    reply = await runLaptopAction(fromNumber, actionOverride, argsOverride);
   } else if (intent.type === "local_action") {
     console.log(`[Router] Branch: local_action`);
     reply = await planAndRunLocalAction(fromNumber, messageBody);
