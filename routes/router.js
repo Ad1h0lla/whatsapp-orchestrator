@@ -103,6 +103,11 @@ export async function handleIncomingMessage(fromNumber, messageBody) {
     actionOverride = "list_projects";
     argsOverride = {};
   }
+  // Screenshot
+  else if (/(screenshot|screen shot|show screen|what's on screen|whats on screen|show me the (ui|frontend|app|screen))/.test(msg)) {
+    actionOverride = "take_screenshot";
+    argsOverride = {};
+  }
   // Code runner — triggers Claude Code / Antigravity on laptop
   else if (/(build|write|create|code|make|generate).*(script|code|function|app|tool|file|component)/.test(msg) ||
       /^(build|code|make|write|create)\s+me\s+/.test(msg)) {

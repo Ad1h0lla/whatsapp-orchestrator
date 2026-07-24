@@ -59,10 +59,49 @@ app.post("/webhook/whatsapp", async (req, res) => {
   }
 });
 
+// Endpoint for laptop agent to upload screenshot
+app.post("/screenshot/upload", async (req, res) => {
+  const secret = req.headers["x-agent-secret"];
+  if (secret !== process.env.AGENT_SHARED_SECRET) {
+    return res.status(401).json({ error: "unauthorized" });
+  }
+  // Receive base64 image
+  const { image, filename } = req.body;
+  if (!image) return res.status(400).json({ error: "no image" });
+  // Store in memory (last screenshot only)
+  global.__lastScreenshot = { 
+    buffer: Buffer.from(image, "base64"), 
+    filename,
+    timestamp: Date.now()
+  };
+  res.json({ ok: true, url: `${process.env.GOOGLE_REDIRECT_BASE}/screenshot/view` });
+});
+
+// Public endpoint to view the screenshot
+app.get("/screenshot/view", (req, res) => {
+  if (!global.__lastScreenshot) return res.status(404).send("No screenshot yet");
+  res.set("Content-Type", "image/png");
+  res.send(global.__lastScreenshot.buffer);
+});
+
 const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
 async function sendWhatsAppMessage(toNumber, body) {
   console.log(`[twilio] sending to ${toNumber}: ${body.slice(0, 100)}`);
+  
+  try {
+    const parsed = JSON.parse(body);
+    if (parsed.type === "screenshot" && parsed.url) {
+      await twilioClient.messages.create({
+        from: process.env.TWILIO_WHATSAPP_FROM,
+        to: `whatsapp:${toNumber}`,
+        body: "Here's your screen:",
+        mediaUrl: [parsed.url],
+      });
+      return;
+    }
+  } catch {}
+
   const chunks = chunkText(body, 1500);
   for (const chunk of chunks) {
     try {
