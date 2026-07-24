@@ -28,7 +28,7 @@ Given a user's WhatsApp message, respond with ONLY a JSON object, no prose, no m
 
 PRIORITY ORDER — check these in order:
 1. "google_action" = ANYTHING about calendar (today, tomorrow, schedule, add event, clear day, what's on my calendar), Drive (find files, recent docs), or Contacts (find someone's number/email). This takes priority over everything else.
-2. "local_action" = user wants something done on their laptop FILES or APPS (open an app, run a script, list local folder contents). NOT calendar or Google stuff.
+2. "local_action" = user wants something done on their laptop FILES or APPS (open an app, run a script, list local folder contents, take a screenshot, start a dev server, check git status, push code). NOT calendar or Google stuff.
 3. "multi_model" = user explicitly wants multiple AI models compared.
 4. "chat" = everything else.
 
