@@ -24,24 +24,27 @@ If you cannot map the request to one of these, respond with:
  */
 export async function handleIncomingMessage(fromNumber, messageBody) {
   const session = sessionStore.getSession(fromNumber);
+  const msgLower = messageBody.toLowerCase();
 
-  // 1. Handle a pending confirmation ("yes"/"no") for a previously proposed action
+  // Handle pending confirmation first
   if (session.pendingConfirmation) {
     const confirmed = /^(y|yes|go|confirm|do it)$/i.test(messageBody.trim());
     const cancelled = /^(n|no|cancel|stop)$/i.test(messageBody.trim());
-
     if (confirmed) {
-      console.log(`[Router] User confirmed pending action: ${session.pendingConfirmation.actionName}`);
       const { actionName, args } = session.pendingConfirmation;
       session.pendingConfirmation = null;
       return runLaptopAction(fromNumber, actionName, args);
     }
     if (cancelled) {
-      console.log(`[Router] User cancelled pending action`);
       session.pendingConfirmation = null;
       return "Cancelled. Nothing was run.";
     }
-    return `You have a pending action waiting for confirmation:\n"${session.pendingConfirmation.action}"\nReply "yes" to run it or "no" to cancel.`;
+    return `Pending action: "${session.pendingConfirmation.action}"\nReply "yes" to run or "no" to cancel.`;
+  }
+
+  // HARDCODED SHORTCUTS — bypass AI classifier entirely
+  if (/(screenshot|show.*screen|screen.*shot|what.*on.*screen|show.*ui|show.*frontend|show.*app)/.test(msgLower)) {
+    return runLaptopAction(fromNumber, "take_screenshot", {});
   }
 
   sessionStore.pushHistory(fromNumber, "user", messageBody);
