@@ -66,6 +66,43 @@ export async function handleIncomingMessage(fromNumber, messageBody) {
       script: "dev"
     };
   }
+  // Git status
+  else if (/(git status|whats changed|what changed|status of|check status)/.test(msg)) {
+    const dirMatch = messageBody.match(/(?:of|in)\s+(E:\\[^\s]+|[A-Z]:\\[^\s]+)/i) ||
+                     messageBody.match(/(E:\\[^\s]+|[A-Z]:\\[^\s]+)/i);
+    actionOverride = "git_status";
+    argsOverride = { dir: dirMatch?.[1] || "E:\\executa-engine" };
+  }
+  // Git push
+  else if (/(push|commit and push|deploy|ship).*(code|changes|update)/.test(msg) ||
+           /git push/.test(msg)) {
+    const dirMatch = messageBody.match(/(E:\\[^\s]+|[A-Z]:\\[^\s]+)/i);
+    const msgMatch = messageBody.match(/(?:message|msg|saying|with)\s+"?([^"]+)"?/i);
+    actionOverride = "git_push";
+    argsOverride = { 
+      dir: dirMatch?.[1] || "E:\\executa-engine",
+      message: msgMatch?.[1] || "update from WhatsApp"
+    };
+  }
+  // Build project
+  else if (/(build|compile|bundle).*(project|app|executa|axl|tetris)/.test(msg) ||
+           /npm (run )?build/.test(msg)) {
+    const dirMatch = messageBody.match(/(E:\\[^\s]+|[A-Z]:\\[^\s]+)/i);
+    actionOverride = "npm_build";
+    argsOverride = { dir: dirMatch?.[1] || "E:\\executa-engine" };
+  }
+  // Kill port / stop server
+  else if (/(stop|kill|close).*(server|dev|port|vite)/.test(msg)) {
+    const portMatch = msg.match(/port\s*(\d+)/);
+    actionOverride = "kill_port";
+    argsOverride = { port: portMatch?.[1] || 5173 };
+  }
+  // List projects
+  else if (/(list|show|what).*(projects?|apps?|folders?)/.test(msg) ||
+           /what('?s| is) on my (e )?drive/.test(msg)) {
+    actionOverride = "list_projects";
+    argsOverride = {};
+  }
   // Code runner — triggers Claude Code / Antigravity on laptop
   else if (/(build|write|create|code|make|generate).*(script|code|function|app|tool|file|component)/.test(msg) ||
       /^(build|code|make|write|create)\s+me\s+/.test(msg)) {
@@ -76,8 +113,9 @@ export async function handleIncomingMessage(fromNumber, messageBody) {
     };
   }
 
-  if (actionOverride === "run_claude_code") {
-    console.log(`[Router] Branch: local_action (regex override)`);
+  const CONFIRM_ACTIONS = new Set(["run_claude_code", "git_push", "npm_build"]);
+  if (CONFIRM_ACTIONS.has(actionOverride)) {
+    console.log(`[Router] Branch: local_action (regex override requiring confirmation)`);
     const session = sessionStore.getSession(fromNumber);
     session.pendingConfirmation = {
       action: `${actionOverride}(${JSON.stringify(argsOverride)})`,
@@ -125,7 +163,7 @@ async function planAndRunLocalAction(fromNumber, messageBody) {
     return plan.clarify || "Can you be more specific about what you want done on your laptop?";
   }
 
-  const NEEDS_CONFIRMATION = new Set(["run_script"]); // grow this list as you add riskier actions
+  const NEEDS_CONFIRMATION = new Set(["run_script", "git_push", "npm_build"]); // grow this list as you add riskier actions
   if (NEEDS_CONFIRMATION.has(plan.action)) {
     const session = sessionStore.getSession(fromNumber);
     session.pendingConfirmation = {
